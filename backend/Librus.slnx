@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Librus.Api/Librus.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Librus.Api.Tests/Librus.Api.Tests.csproj" />
+  </Folder>
+</Solution>
