@@ -28,9 +28,9 @@ public class Loan
 
     public void Return(DateTime now) => ReturnedAt = now;
 
-    public void Renew(DateTime now)
+    public void Renew()
     {
-        DueAt = (DueAt > now ? DueAt : now).AddDays(LoanPolicy.RenewalDays);
+        DueAt = DueAt.AddDays(LoanPolicy.RenewalDays);
         RenewalCount++;
     }
 }

@@ -13,6 +13,8 @@ public class LibrusDbContext(DbContextOptions<LibrusDbContext> options)
     public DbSet<User> Users => Set<User>();
     public DbSet<Loan> Loans => Set<Loan>();
     public DbSet<UserFeedback> Feedback => Set<UserFeedback>();
+    public DbSet<ReadingTimeRow> ReadingTimeRows => Set<ReadingTimeRow>();
+    public DbSet<BookLoanCountRow> BookLoanCounts => Set<BookLoanCountRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -54,5 +56,8 @@ public class LibrusDbContext(DbContextOptions<LibrusDbContext> options)
                 "ck_feedback_score", "score BETWEEN 1 AND 10"));
             e.HasQueryFilter(x => x.DeletedAt == null);
         });
+
+        b.Entity<ReadingTimeRow>().HasNoKey().ToView(null);
+        b.Entity<BookLoanCountRow>().HasNoKey().ToView(null);
     }
 }
