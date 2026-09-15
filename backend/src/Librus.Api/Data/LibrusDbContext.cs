@@ -36,7 +36,6 @@ public class LibrusDbContext(DbContextOptions<LibrusDbContext> options)
 
         b.Entity<Loan>(e =>
         {
-            // Ett exemplar kan bara ha ett aktivt lån åt gången.
             e.HasIndex(x => x.CopyId)
                 .IsUnique()
                 .HasFilter("returned_at IS NULL")

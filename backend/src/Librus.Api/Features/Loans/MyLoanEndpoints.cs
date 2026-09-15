@@ -23,7 +23,6 @@ public static class MyLoanEndpoints
             };
 
             var loans = await query
-                // Pågående först, därefter de mest brådskande respektive senast återlämnade.
                 .OrderBy(l => l.ReturnedAt == null ? 0 : 1)
                 .ThenBy(l => l.ReturnedAt == null ? l.DueAt : DateTime.MaxValue)
                 .ThenByDescending(l => l.ReturnedAt)

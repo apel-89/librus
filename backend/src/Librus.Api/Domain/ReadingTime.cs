@@ -7,9 +7,7 @@ public static class ReadingTimePolicy
 
 public enum ReadingTimeSource
 {
-    /// <summary>Median av vad andra låntagare faktiskt rapporterat för boken.</summary>
     ReportedForBook,
-    /// <summary>Beräknad från sidantal och bibliotekets genomsnittliga lästakt.</summary>
     EstimatedFromPages,
 }
 

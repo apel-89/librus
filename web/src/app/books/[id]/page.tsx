@@ -18,7 +18,6 @@ export default async function BookPage({ params }: BookPageProps) {
 
   const book = await api<BookDetail>(`/api/books/${id}`).catch(() => null);
   if (!book) notFound();
-  console.log(book);
 
   const imageUrl = book.coverId ? getCoverUrl(book.coverId, "L") : null;
 

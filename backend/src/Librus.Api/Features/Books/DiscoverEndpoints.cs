@@ -61,7 +61,6 @@ public static class DiscoverEndpoints
                 })
                 .ToDictionaryAsync(b => b.Id, ct);
 
-            // SQL-frågan äger ordningen; uppslagningen lägger bara på bokdata.
             var result = counts
                 .Where(c => books.ContainsKey(c.BookId))
                 .Select((c, index) =>

@@ -13,8 +13,6 @@ public sealed class LoanServiceTests(DatabaseFixture fixture) : IAsyncLifetime
     public async Task InitializeAsync() => await fixture.ResetAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 
-    // ---------- Låna ----------
-
     [Fact]
     public async Task Borrow_allokerar_ett_ledigt_exemplar()
     {
@@ -94,11 +92,6 @@ public sealed class LoanServiceTests(DatabaseFixture fixture) : IAsyncLifetime
             () => service.BorrowAsync(oneMore, userId));
     }
 
-    /// <summary>
-    /// Kärnan i hela lösningen: två samtidiga lån på bokens enda exemplar.
-    /// Garantin ligger i databasens partiella unika index, inte i koden —
-    /// därför måste testet köras mot riktig Postgres.
-    /// </summary>
     [Fact]
     public async Task Två_samtidiga_lån_på_samma_exemplar_ger_bara_ett_lån()
     {
@@ -132,8 +125,6 @@ public sealed class LoanServiceTests(DatabaseFixture fixture) : IAsyncLifetime
             }
         }
     }
-
-    // ---------- Lämna tillbaka ----------
 
     [Fact]
     public async Task Return_frigör_exemplaret_för_nästa_låntagare()
@@ -183,8 +174,6 @@ public sealed class LoanServiceTests(DatabaseFixture fixture) : IAsyncLifetime
         await Assert.ThrowsAsync<ForbiddenException>(
             () => service.ReturnAsync(loan.Id, stranger));
     }
-
-    // ---------- Förlänga ----------
 
     [Fact]
     public async Task Renew_räknar_från_förfallodatumet()
@@ -238,8 +227,6 @@ public sealed class LoanServiceTests(DatabaseFixture fixture) : IAsyncLifetime
         await Assert.ThrowsAsync<ConflictException>(
             () => service.RenewAsync(loan.Id, userId));
     }
-
-    // ---------- Testdata ----------
 
     private async Task<(int BookId, List<int> CopyIds)> GivenBookWithCopies(int copies)
     {

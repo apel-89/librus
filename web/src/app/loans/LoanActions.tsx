@@ -13,12 +13,13 @@ export function LoanActions({ loan }: { loan: LoanItem }) {
       <div className="flex space-x-2">
         <Button
           variant="outline"
+          className={loan.isOverdue ? "text-destructive" : ""}
           disabled={!loan.canRenew || pending}
           onClick={() =>
             run(() => api(`/api/loans/${loan.id}/renew`, { method: "POST" }))
           }
         >
-          Förläng
+          {loan.isOverdue ? "Försenad" : "Förläng"}
         </Button>
 
         <Button

@@ -28,8 +28,6 @@ public static class MeEndpoints
             var overdue = active.Count(due => due < now);
             var atLimit = active.Count >= LoanPolicy.MaxActiveLoansPerUser;
 
-            // Samma ordning som kontrollerna i LoanService, så att förklaringen
-            // frontenden visar stämmer med det fel ett lånförsök faktiskt ger.
             var blockedReason =
                 atLimit ? BorrowBlockedReason.LoanLimitReached
                 : overdue > 0 ? BorrowBlockedReason.HasOverdueLoans
