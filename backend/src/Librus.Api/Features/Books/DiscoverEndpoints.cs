@@ -20,7 +20,7 @@ public static class DiscoverEndpoints
             IClock clock,
             CancellationToken ct) =>
         {
-            var take = Math.Clamp(limit ?? 10, 1, 50);
+            var take = Math.Clamp(limit ?? 10, 1, 100);
 
             DateTime? since = (period ?? PopularityPeriod.All) switch
             {
@@ -51,6 +51,7 @@ public static class DiscoverEndpoints
                 {
                     b.Id,
                     b.Title,
+                    b.CoverId,
                     Author = b.Author.Name,
                     Genre = b.Genre.Name,
                     CopiesTotal = b.Copies.Count,
@@ -68,7 +69,56 @@ public static class DiscoverEndpoints
                     var b = books[c.BookId];
                     return new PopularBook(
                         index + 1, b.Id, b.Title, b.Author, b.Genre,
-                        c.LoanCount, b.CopiesTotal, b.CopiesAvailable, b.AverageScore);
+                        c.LoanCount, b.CopiesTotal, b.CopiesAvailable, b.AverageScore, b.CoverId);
+                })
+                .ToList();
+
+            return Results.Ok(result);
+        })
+        .WithTags("Discover");
+
+        app.MapGet("/api/books/{id:int}/recommendations", async (
+            int id,
+            int? limit,
+            LibrusDbContext db,
+            ICurrentUser user,
+            CancellationToken ct) =>
+        {
+            var counts = await db.BookLoanCounts
+                .FromSqlRaw(SqlResources.Load("Recommendations"),
+                    new NpgsqlParameter("book_id", id),
+                    new NpgsqlParameter("user_id", user.Id),
+                    new NpgsqlParameter("limit", Math.Clamp(limit ?? 8, 1, 20)))
+                .ToListAsync(ct);
+
+            if (counts.Count == 0)
+                return Results.Ok(Array.Empty<RecommendedBook>());
+
+            var ids = counts.Select(c => c.BookId).ToList();
+
+            var books = await db.Books
+                .Where(b => ids.Contains(b.Id))
+                .Select(b => new
+                {
+                    b.Id,
+                    b.Title,
+                    b.CoverId,
+                    Author = b.Author.Name,
+                    CopiesTotal = b.Copies.Count,
+                    CopiesAvailable = b.Copies.Count(c => c.Loans.All(l => l.ReturnedAt != null)),
+                    AverageScore = db.Feedback.Where(f => f.BookId == b.Id)
+                        .Average(f => (double?)f.Score),
+                })
+                .ToDictionaryAsync(b => b.Id, ct);
+
+            var result = counts
+                .Where(c => books.ContainsKey(c.BookId))
+                .Select(c =>
+                {
+                    var b = books[c.BookId];
+                    return new RecommendedBook(
+                        b.Id, b.Title, b.Author, b.CoverId,
+                        b.CopiesTotal, b.CopiesAvailable, b.AverageScore, c.LoanCount);
                 })
                 .ToList();
 
@@ -87,4 +137,10 @@ public sealed record PopularBook(
     int LoanCount,
     int CopiesTotal,
     int CopiesAvailable,
-    double? AverageScore);
+    double? AverageScore, 
+    int? CoverId);
+
+public sealed record RecommendedBook(
+    int Id, string Title, string Author, int? CoverId,
+    int CopiesTotal, int CopiesAvailable, double? AverageScore,
+    int SharedBorrowers);

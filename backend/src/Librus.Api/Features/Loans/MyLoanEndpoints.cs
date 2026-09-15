@@ -40,7 +40,8 @@ public static class MyLoanEndpoints
                     l.ReturnedAt == null && l.DueAt < now,
                     l.ReturnedAt == null
                         && l.DueAt >= now
-                        && l.RenewalCount < LoanPolicy.MaxRenewals))
+                        && l.RenewalCount < LoanPolicy.MaxRenewals,
+                    l.Copy.Book.CoverId))
                 .ToListAsync(ct);
 
             return Results.Ok(loans);
@@ -60,4 +61,5 @@ public sealed record MyLoanResponse(
     DateTime? ReturnedAt,
     int RenewalCount,
     bool IsOverdue,
-    bool CanRenew);
+    bool CanRenew, 
+    int? CoverId);

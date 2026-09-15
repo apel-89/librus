@@ -15,7 +15,7 @@ public static class BookEndpoints
             CancellationToken ct) =>
         {
             var currentPage = page is null or < 1 ? 1 : page.Value;
-            var size = Math.Clamp(pageSize ?? 20, 1, 50);
+            var size = Math.Clamp(pageSize ?? 20, 1, 100);
 
             var query = db.Books.AsQueryable();
 
@@ -49,11 +49,10 @@ public static class BookEndpoints
                     b.PublishedYear,
                     b.Pages,
                     b.Copies.Count,
-                    b.Copies.Count(c => !c.Loans.Any(l => l.ReturnedAt == null)),
-                    db.Feedback.Where(f => f.BookId == b.Id)
-                        .Average(f => (double?)f.Score),
-                    b.Copies.Any(c => c.Loans.Any(l =>
-                        l.ReturnedAt == null && l.UserId == user.Id))))
+                    b.Copies.Count(c => c.Loans.All(l => l.ReturnedAt != null)),
+                    db.Feedback.Where(f => f.BookId == b.Id).Average(f => (double?)f.Score),
+                    b.Copies.Any(c => c.Loans.Any(l => l.ReturnedAt == null && l.UserId == user.Id)),
+                    b.CoverId))
                 .ToListAsync(ct);
 
             return Results.Ok(new PagedResult<BookListItem>(items, currentPage, size, total));
@@ -71,7 +70,12 @@ public static class BookEndpoints
                 .Where(b => b.Id == id)
                 .Select(b => new
                 {
-                    b.Id, b.Title, b.Description, b.PublishedYear, b.Pages,
+                    b.Id,
+                    b.Title,
+                    b.Description,
+                    b.PublishedYear,
+                    b.Pages,
+                    b.CoverId,
                     Author = b.Author.Name,
                     Genre = b.Genre.Name,
                     CopiesTotal = b.Copies.Count,
@@ -107,7 +111,8 @@ public static class BookEndpoints
                 book.AverageScore, book.FeedbackCount,
                 book.MyActiveLoanId,
                 estimate,
-                reviews));
+                reviews, 
+                book.CoverId));
         })
         .WithTags("Books");
     }
@@ -123,7 +128,8 @@ public sealed record BookListItem(
     int CopiesTotal,
     int CopiesAvailable,
     double? AverageScore,
-    bool BorrowedByMe);
+    bool BorrowedByMe, 
+    int? CoverId);
 
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 
@@ -136,4 +142,5 @@ public sealed record BookDetailResponse(
     double? AverageScore, int FeedbackCount,
     int? MyActiveLoanId,
     ReadingTimeEstimate? ReadingTime,
-    IReadOnlyList<ReviewResponse> Reviews);
+    IReadOnlyList<ReviewResponse> Reviews, 
+    int? CoverId);

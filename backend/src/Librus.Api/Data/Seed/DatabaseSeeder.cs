@@ -55,7 +55,8 @@ public static class DatabaseSeeder
         string? Description,
         int PublishedYear,
         int Pages,
-        string Genre);
+        string Genre, 
+        int? CoverId);
 
     private sealed record SeedFile(List<string> Genres, List<BookSource> Books);
 
@@ -114,6 +115,7 @@ public static class DatabaseSeeder
                 Pages = b.Pages,
                 Author = authors[b.AuthorName],
                 Genre = genres[b.Genre],
+                CoverId = b.CoverId
             })
             .ToList();
 

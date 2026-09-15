@@ -15,7 +15,7 @@ public static class LoanEndpoints
             var loan = await loans.BorrowAsync(request.BookId, user.Id, ct);
             return Results.Created($"/api/loans/{loan.Id}", LoanResponse.From(loan));
         });
-
+        
         group.MapPost("/{id:int}/return", async (
             int id, LoanService loans, ICurrentUser user, CancellationToken ct) =>
         {
