@@ -12,14 +12,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn("h-full antialiased", "font-sans", geist.variable)}
     >
       <body className="relative min-h-full flex flex-col">
-        <header className="h-(--header-height) flex items-center justify-center bg-amber-300 ">
-          <span className="text-xl font-thin text-yellow-950 font-serif">
+        <header className="fixed w-full h-(--header-height) flex items-center justify-center bg-yellow-200 bg-linear-to-r from-amber-200 to-transparent z-20">
+          <span className="text-xl font-thin text-yellow-950 font-serif bg-white/60 rounded-lg px-8 shadow-sm">
             Librus
           </span>
         </header>
         <Menu />
-        <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans">
-          <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white sm:items-start">
+        <div className="flex flex-col flex-1 justify-center font-sans ml-(--menu-width)">
+          <main className="absolute flex flex-1 flex-col justify-between pt-2 px-12 top-(--header-height) w-[calc(100%-var(--menu-width))]">
             {children}
           </main>
         </div>
