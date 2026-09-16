@@ -10,18 +10,12 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(
-  path: string,
-  init: RequestInit & { userId?: number } = {},
-): Promise<T> {
-  const { userId, ...rest } = init;
-
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    ...rest,
+    ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(userId ? { "X-User-Id": String(userId) } : {}),
-      ...rest.headers,
+      ...init.headers,
     },
     cache: "no-store",
   });

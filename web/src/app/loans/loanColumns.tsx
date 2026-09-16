@@ -6,7 +6,7 @@ import { LoanItem } from "@/types/general";
 import { createColumnHelper } from "@tanstack/react-table";
 import Link from "next/link";
 
-const toDateString = (date?: string) =>
+const toDateString = (date?: string | null) =>
   date ? new Date(date).toLocaleDateString("sv-SE") : "-";
 
 const helper = createColumnHelper<DataTableFeatures, LoanItem>();

@@ -11,7 +11,7 @@ export async function Recommendations({ bookId }: { bookId: number }) {
   if (books.length === 0) return null;
 
   return (
-    <section className="mt-12">
+    <section className="mt-12 mb-6 w-full flex items-center justify-center flex-col">
       <h2 className="mb-4 text-lg font-bold">Andra har också läst</h2>
       <BookCarousel
         data={books}

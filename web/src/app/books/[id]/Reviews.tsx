@@ -7,19 +7,19 @@ export function Reviews({
   feedbackCount,
 }: {
   reviews: Review[];
-  averageScore: number | null;
+  averageScore?: number | null;
   feedbackCount: number;
 }) {
   return (
     <section className="mt-12">
       <div className="mb-4 flex items-baseline gap-3">
         <h2 className="text-lg font-bold">Läsarnas omdömen</h2>
-        {averageScore !== null && (
+        {averageScore ? (
           <span className="text-sm text-gray-600">
             {averageScore.toFixed(1)} av 10 · {feedbackCount}{" "}
             {feedbackCount === 1 ? "omdöme" : "omdömen"}
           </span>
-        )}
+        ) : null}
       </div>
 
       {reviews.length === 0 ? (

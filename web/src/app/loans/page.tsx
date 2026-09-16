@@ -9,6 +9,7 @@ import { loanColumns } from "./loanColumns";
 export default async function Loans() {
   const data = await api<LoanItem[]>("/api/me/loans");
   const activeLoans = data.filter((loan) => !loan.returnedAt);
+  const inactiveLoans = data.filter((loan) => loan.returnedAt);
 
   return (
     <div className="flex flex-col space-y-4 h-[calc(100vh-var(--header-height)-6rem)] w-[calc(100vw-var(--menu-width)-6rem)]">
@@ -31,7 +32,7 @@ export default async function Loans() {
 
       <div className="text-lg pt-4 font-bold">Tidigare lån</div>
       <div className="rounded-md border overflow-auto min-h-0">
-        <DataTable columns={loanColumns} data={data} />
+        <DataTable columns={loanColumns} data={inactiveLoans} />
       </div>
     </div>
   );

@@ -9,11 +9,11 @@ export interface BookBase {
   id: number;
   title: string;
   author: string;
-  coverId: number;
+  coverId: number | null;
 }
 
 export interface BookListItem extends BookBase {
-  averageScore: number;
+  averageScore: number | null;
   borrowedByMe: boolean;
   copiesAvailable: number;
   copiesTotal: number;
@@ -30,38 +30,47 @@ export interface LoanItem extends BookBase {
   dueAt: string;
   isOverdue: boolean;
   renewalCount: number;
-  returnedAt: string;
+  returnedAt: string | null;
 }
 
 export interface RecommendedBook extends BookBase {
-  averageScore: number;
+  averageScore: number | null;
   copiesAvailable: number;
   copiesTotal: number;
   sharedBorrowers: number;
 }
 
-export interface BookDetail extends BookListItem {
-  author: string;
-  averageScore: number;
+export interface PopularBook extends BookBase {
+  averageScore: number | null;
   copiesAvailable: number;
   copiesTotal: number;
   coverId: number;
-  description: string;
-  feedbackCount: number;
   genre: string;
-  id: number;
-  myActiveLoanId: number;
-  pages: number;
-  publishedYear: number;
+  loanCount: number;
+  rank: number;
+}
+
+export interface BookDetail extends BookBase {
+  description: string | null;
+  feedbackCount: number;
+  myActiveLoanId: number | null;
   readingTime: ReadingTimeEstimate | null;
   reviews: Review[];
+  averageScore: number | null;
+  copiesAvailable: number;
+  copiesTotal: number;
+  genre: string;
+  pages: number;
+  publishedYear: number;
 }
 
 export interface ReadingTimeEstimate {
   minutes: number;
-  source: "ReportedForBook" | "EstimatedFromPages";
+  source: ReadingTimeSource;
   sampleSize: number;
 }
+
+type ReadingTimeSource = "ReportedForBook" | "EstimatedFromPages";
 
 export interface Review {
   by: string;
@@ -69,3 +78,15 @@ export interface Review {
   review: string;
   score: number;
 }
+
+export interface Me {
+  activeLoanCount: number;
+  blockedReason: BlockedReason | null;
+  canBorrow: boolean;
+  id: number;
+  maxActiveLoans: number;
+  name: string;
+  overdueCount: number;
+}
+
+export type BlockedReason = "HasOverdueLoans" | "LoanLimitReached";

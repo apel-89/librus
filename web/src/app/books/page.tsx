@@ -8,11 +8,11 @@ import { BookListItem, PagedResult } from "@/types/general";
 export const PAGE_SIZES = [5, 10, 20, 100];
 const DEFAULT_PAGE_SIZE = 20;
 
-interface ExploreProps {
+interface BooksProps {
   searchParams: Promise<{ page?: string; pageSize?: string; search?: string }>;
 }
 
-export default async function Explore({ searchParams }: ExploreProps) {
+export default async function Books({ searchParams }: BooksProps) {
   const { page, pageSize, search } = await searchParams;
   const currentPage = Math.max(1, Number(page) || 1);
   const requested = Number(pageSize);
@@ -22,11 +22,9 @@ export default async function Explore({ searchParams }: ExploreProps) {
     page: String(currentPage),
     pageSize: String(size),
   });
-  if (search) query.set("search", search);
 
+  if (search) query.set("search", search);
   const data = await api<PagedResult<BookListItem>>(`/api/books?${query}`);
-
-  if (search) query.set("search", search);
 
   return (
     <div className="flex flex-col space-y-4 h-[calc(100vh-var(--header-height)-6rem)] w-[calc(100vw-var(--menu-width)-6rem)]">

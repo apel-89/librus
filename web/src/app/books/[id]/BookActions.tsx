@@ -3,13 +3,31 @@
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useApiAction } from "@/lib/use-api-action";
-import type { BookDetail } from "@/types/general";
+import type { BlockedReason } from "@/types/general";
 
-export function BookActions({ book }: { book: BookDetail }) {
+const buttonMessage: Record<BlockedReason | "Other", string> = {
+  HasOverdueLoans: "Du har försenade lån",
+  LoanLimitReached: "Du har nått lånegränsen",
+  Other: "Något gick fel",
+};
+
+export function BookActions({
+  canBorrow,
+  blockedReason,
+  bookId,
+  myActiveLoanId,
+  copiesAvailable,
+}: {
+  bookId: number;
+  myActiveLoanId: number | null;
+  copiesAvailable: number;
+  canBorrow: boolean;
+  blockedReason: BlockedReason | null | undefined;
+}) {
   const { run, error, pending } = useApiAction();
 
-  const isBorrowed = book.myActiveLoanId !== null;
-  const soldOut = book.copiesAvailable === 0;
+  const isBorrowed = myActiveLoanId !== null;
+  const soldOut = copiesAvailable === 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -18,7 +36,7 @@ export function BookActions({ book }: { book: BookDetail }) {
           disabled={pending}
           onClick={() =>
             run(() =>
-              api(`/api/loans/${book.myActiveLoanId}/return`, {
+              api(`/api/loans/${myActiveLoanId}/return`, {
                 method: "POST",
               }),
             )
@@ -28,17 +46,21 @@ export function BookActions({ book }: { book: BookDetail }) {
         </Button>
       ) : (
         <Button
-          disabled={pending || soldOut}
+          disabled={pending || soldOut || !canBorrow}
           onClick={() =>
             run(() =>
               api("/api/loans", {
                 method: "POST",
-                body: JSON.stringify({ bookId: book.id }),
+                body: JSON.stringify({ bookId }),
               }),
             )
           }
         >
-          {soldOut ? "Alla exemplar utlånade" : "Låna"}
+          {soldOut
+            ? "Alla exemplar utlånade"
+            : !canBorrow
+              ? buttonMessage[blockedReason ?? "Other"]
+              : "Låna"}
         </Button>
       )}
 
