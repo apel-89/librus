@@ -1,15 +1,6 @@
-## Kör lokalt
+# Librus
 
-Kräver Docker, .NET SDK 10 och Node 20+.
-
-    ./scripts/dev.sh
-
-Startar Postgres, migrerar, seedar och kör både API och frontend.
-Nollställ databasen med `docker compose down -v` och kör skriptet igen.
-
-Eftersom tiden för detta projekt har varit begränsad, och det faktum att mycket funktionalitet ska ingå, har vissa saker prioriterats bort för att gynna flödet mellan backend och frontend.# Librus
-
-En boklåningsapp ur låntagarens perspektiv. Backend i C#/.NET med Entity Framework Core och Postgres, frontend i Next.js.
+En boklåningsapp ur låntagarens perspektiv. C#/.NET med EF Core och Postgres i backend, Next.js i frontend.
 
 ## Kör lokalt
 
@@ -19,159 +10,113 @@ Kräver Docker, .NET SDK 10 och Node 20+.
 ./scripts/dev.sh
 ```
 
-Skriptet startar Postgres, installerar beroenden och kör både API och frontend. Migrationer och seeddata körs automatiskt av API:t vid uppstart i Development, så första körningen tar några sekunder extra.
+Migrationer och seeddata körs vid uppstart, så första körningen tar några sekunder extra.
 
-| | |
-|---|---|
-| Frontend | http://localhost:3000 |
-| API | http://localhost:5092 |
+|                   |                                 |
+| ----------------- | ------------------------------- |
+| Frontend          | http://localhost:3000           |
+| API               | http://localhost:5092           |
 | API-dokumentation | http://localhost:5092/scalar/v1 |
 
 Nollställ databasen med `docker compose down -v` och kör skriptet igen.
 
-Tester: `cd backend && dotnet test`. De körs mot databasen `librus_test`, som skapas automatiskt i samma container.
+Tester: `cd backend && dotnet test`. De kör mot `librus_test`, som skapas när docker-volymen initieras första gången.
 
-## Struktur
+## Upplägg
 
-```
-backend/src/Librus.Api/
-├── Domain/       entiteter, domänregler, domänundantag
-├── Data/         DbContext, migrationer, seedning
-├── Features/     endpoints och services per område
-└── Sql/          inbäddade SQL-frågor
-web/src/
-├── app/          routes
-├── components/
-└── lib/          API-klient och hjälpfunktioner
-```
-
-Jag har medvetet hållit backenden i ett projekt med tydliga mappgränser i stället för Clean Architecture med separata assemblies. På den här storleken tillför assembly-gränser ingenting, och de hade gjort lösningen dyrare att läsa. Domänlagret känner däremot inte till HTTP: `LoanService` tar enkla parametrar och kastar domänundantag, som API-lagret översätter till statuskoder.
-
-Av samma skäl finns inga repository-abstraktioner över EF Core. `DbContext` är redan Unit of Work och repository; att kapsla in den hade lagt till ett lager utan att lösa något.
-
-## Datamodell
-
-```
-books ──< book_copies ──< loans >── users
-  │
-  ├──> authors
-  ├──> genres
-  └──< feedback >── users
-```
-
-Exemplar modelleras explicit i stället för som en räknare på boken. Uppgiftens tillgänglighetsbegrepp, hur många exemplar som är lediga respektive utlånade, förutsätter att exemplaret finns som entitet, och det gör att ett lån kan knytas till ett fysiskt exemplar precis som på ett riktigt bibliotek.
-
-Lånet når boken via `copy_id → book_id`, vilket kostar en join i topplistan och rekommendationerna. Alternativet hade varit att denormalisera `book_id` på `loans`, men exemplaret är sanningskällan för vilken bok lånet gäller, och duplicering hade varit en prestandaoptimering utan mätning bakom sig.
+Ett backendprojekt med mappgränser i stället för separata assemblies. På den här storleken hade fler projekt kostat mer i läsbarhet än de gett i struktur. Domänen känner ändå inte till HTTP: `LoanService` tar vanliga parametrar och kastar domänundantag som API-lagret översätter till statuskoder. Inga repositories ovanpå EF Core, `DbContext` gör redan det jobbet.
 
 ## Låneflödet
 
-Det här är den del jag lagt mest omsorg på.
+Den del jag lagt mest tid på.
 
-**Ett exemplar kan aldrig ha två aktiva lån.** Garantin ligger i databasen, inte i koden:
+Ett exemplar kan inte ha två aktiva lån samtidigt, och det är databasen som håller regeln:
 
 ```sql
 CREATE UNIQUE INDEX ix_loans_active_copy
   ON loans (copy_id) WHERE returned_at IS NULL;
 ```
 
-`LoanService` kontrollerar tillgänglighet före skrivning för att kunna ge ett begripligt felmeddelande i normalfallet, men låter databasen ha sista ordet. Hinner någon annan låna exemplaret däremellan fångas unique-violation och nästa lediga exemplar prövas. Utan det partiella indexet hade flödet krävt en transaktion med radlås.
+`LoanService` kollar tillgänglighet före skrivning för att kunna ge ett begripligt felmeddelande, men litar inte på kontrollen. Hinner någon emellan fångas unique-violationen och nästa lediga exemplar prövas. Utan indexet hade det krävt en transaktion med radlås.
 
-**Låna tar `bookId`, inte `copyId`.** Låntagaren väljer bok, biblioteket allokerar exemplar.
+Låna tar `bookId`, inte `copyId`. Låntagaren väljer bok, biblioteket väljer exemplar.
 
-**Domänregler** (samlade i `LoanPolicy`):
+Reglerna ligger samlade i `LoanPolicy`:
 
-- Lånetid 28 dagar, max 5 aktiva lån per låntagare
-- Max 2 förlängningar, räknat från förfallodatumet
-- Försenade lån kan inte förlängas utan måste lämnas tillbaka; annars hade det nya förfallodatumet kunnat hamna i det förflutna
+- 28 dagars lånetid, max 5 aktiva lån
+- Max 2 förlängningar om 7 dagar, räknade från förfallodatumet
+- Försenade lån kan inte förlängas, då hade det nya förfallodatumet kunnat hamna i det förflutna
 - Försenade lån blockerar nya lån
 - Samma bok kan inte lånas två gånger samtidigt
 
-`GET /api/me` returnerar om låntagaren får låna och i så fall inte varför, som ett enum. Frontenden behöver därmed inte känna till reglerna, och felmeddelandet i UI:t kommer från samma källa som det fel ett lånförsök faktiskt hade gett.
+`GET /api/me` svarar om låntagaren får låna och annars varför. Låneknappen läser det svaret i stället för att räkna ut reglerna själv, så användaren får samma besked som ett lånförsök hade gett.
+
+## Datamodell
+
+Exemplar är egna rader, inte en räknare på boken. Uppgiften frågar efter hur många exemplar som är lediga respektive utlånade, och då behöver exemplaret vara något ett lån kan peka på. Raderna skulle i teorin kunna motsvara ett fysiskt exemplar av boken.
+
+Lånet når boken via `copy_id`, vilket kostar en join i topplistan och rekommendationerna. Att dubbellagra `book_id` på `loans` hade tagit bort joinen, men exemplaret är sanningskällan och jag har inget mätvärde som motiverar det.
 
 ## Uppskattad lästid
 
-Baseras på låntagarnas egenrapporterade lästid i minuter, inte på lånetiden. Lånetid mäter när boken lämnades tillbaka, inte hur länge den lästes.
+Bygger på vad låntagare rapporterat att de läst i minuter, inte på hur länge lånet varade. Lånetiden säger när boken lämnades tillbaka, inte hur länge den lästes. Jag använder medianen för att enstaka extremvärden annars drar iväg siffran, och vid färre än fem rapporter bibliotekets lästakt per sida gånger sidantalet.
 
-Uppskattningen är **medianen**, inte medelvärdet, eftersom enstaka extremvärden annars drar iväg siffran. Har boken färre än fem rapporter används i stället bibliotekets globala lästakt per sida gånger bokens sidantal.
+API:t säger vilken av källorna som använts och UI:t visar det. "Baserat på 14 rapporter" går att väga in, samma siffra utan sammanhang ser bara exakt ut.
 
-API:t returnerar vilken av de två källorna som använts, och UI:t visar det. En siffra som säger "baserat på 14 rapporter" är beslutsstöd; samma siffra utan sammanhang är en gissning som ser exakt ut.
+## SQL
 
-## Rå SQL
-
-Tre frågor ligger som inbäddade `.sql`-filer i stället för LINQ:
-
-- **Lästid** — Postgres `percentile_cont` för medianberäkning
-- **Topplista** — aggregering över lånehistoriken med valbar tidsperiod (senaste månaden, senaste året, all time via samma fråga)
-- **Rekommendationer** — co-occurrence: låntagare som lånat boken, deras övriga böcker, sorterat på antal delade låntagare
-
-Alla tre är aggregeringar där SQL är tydligare än LINQ. Bokdata hämtas sedan med EF i en andra fråga, att pressa in titlar, författare och tillgänglighet i samma SQL hade gett frågor ingen vill läsa.
-
-EF:s query filter för soft delete gäller inte i rå SQL, så `deleted_at IS NULL` står explicit där det behövs.
+Lästid, topplista och rekommendationer är aggregeringar och ligger som SQL. Frågorna blir lättare att läsa så, och `percentile_cont` finns inte i LINQ. Bokdata hämtas i en andra fråga, att trycka in titlar och tillgänglighet i samma SQL hade gett frågor ingen vill underhålla.
 
 ## Frontend
 
-Datahämtning sker i server components. TanStack Query, som jag annars använder dagligen, valdes bort eftersom det hade infört ett andra cachelager parallellt med App Routers utan att lösa något som inte redan var löst. Mutationer sker i klientkomponenter följt av `router.refresh()`.
+Hämtning i server components, mutationer i klientkomponenter följt av `router.refresh()`. TanStack Query hade lagt en andra cache ovanpå den App Router redan har. Alla anrop går med `no-store`, eftersom lånestatus ändras av användarens egna klick.
 
-Sökning, paginering och sidstorlek ligger i URL:en i stället för i React-state. Det ger delbara länkar, fungerande bakåtknapp och automatisk prefetch av nästa sida.
+Sökning, paginering och sidstorlek ligger i URL:en. Det ger delbara länkar och en bakåtknapp som fungerar.
 
-API-fel kommer tillbaka som `ProblemDetails` och `detail`-texten visas direkt i UI:t. Felmeddelandena är därmed skrivna en gång, i domänen.
+Fel kommer tillbaka som `ProblemDetails` och `detail`-texten visas som den är, så felmeddelandena skrivs en gång och bara i domänen.
 
 ## Seeddata
 
-Böckerna är hämtade från Open Library och ligger som `books.json` i repot. Seedningen behöver aldrig nätverk. Omslagsbilder hämtas däremot från `covers.openlibrary.org` i webbläsaren, så de kräver internetanslutning för att visas.
+Böckerna kommer från Open Library och ligger som `books.json` i repot, så seedningen behöver inget nätverk. Omslagen hämtas från `covers.openlibrary.org` i webbläsaren och kräver internet för att synas.
 
-Lånehistoriken genereras däremot vid seedning, relativt aktuell tid. Med statiska datum hade "senaste månaden" i topplistan varit tom den dag någon annan körde appen.
+Lånehistoriken genereras relativt dagens datum. Med fasta datum hade "senaste månaden" i topplistan varit tom för alla som körde appen senare.
 
-Två detaljer som gör datan användbar:
+Lånen byggs som en kedja per exemplar, ett i taget framåt i tiden, så seeddatan kan inte bryta mot det unika indexet. Varje låntagare har två favoritgenrer och lånar oftare inom dem, annars blir lånemönstret brus och rekommendationerna säger ingenting.
 
-**Lånen byggs som en kedja per exemplar** — ett lån i taget framåt i tiden med hylltid emellan. Det gör att seeddatan strukturellt inte kan bryta mot det unika indexet.
-
-**Varje låntagare har två favoritgenrer** och lånar fyra gånger oftare inom dem. Utan den strukturen blir lånemönstret brus och rekommendationerna meningslösa.
-
-Genrerna kommer från Open Librarys ämnesindex och är ibland oväntade, enstaka romaner har hamnat under Populärvetenskap.
+Genrerna kommer från Open Librarys ämnesindex och blir ibland oväntade. Enstaka romaner har hamnat under Populärvetenskap.
 
 ## Tester
 
-13 tester mot låneflödet, körda mot riktig Postgres och inte mot EF Cores InMemory-provider. Anledningen är att lösningens viktigaste garanti, det partiella unika indexet, bara existerar i databasen. InMemory hade rapporterat gröna tester för kod som går sönder i drift.
+12 tester mot låneflödet, mot riktig Postgres och inte EF Cores InMemory-provider. Det viktigaste skyddet finns bara i databasen, och InMemory hade gett gröna tester för kod som går sönder i drift. Det viktigaste testet startar två samtidiga lån på bokens enda exemplar och kontrollerar att ett överlever.
 
-Det viktigaste testet startar två samtidiga lån på bokens enda exemplar och verifierar att exakt ett överlever.
-
-`IClock` finns för att göra tidsberoende regler testbara. Utan den går förseningar och förlängningar inte att testa utan att vänta 28 dagar.
+`IClock` finns för att förseningar och förlängningar ska gå att testa utan att vänta 28 dagar.
 
 ## Autentisering
 
-Appen antar en inloggad låntagare. Aktuell användare läses från headern `X-User-Id`, med fallback till låntagare 1. Sömmen ser ut som den hade gjort med riktig autentisering, men identiteten är obekräftad.
+`ICurrentUser` läser `X-User-Id` och faller tillbaka på låntagare 1. Ingen klient sätter headern i dag, så identiteten är obekräftad.
 
 ## Medvetna avgränsningar
 
-Uppgiften är satt till 3–4 timmar och anger att ett genomtänkt låneflöde väger tyngre än många halvfärdiga features. Följande har därför prioriterats bort:
+Uppgiften är satt till 3-4 timmar och säger att ett genomtänkt låneflöde väger tyngre än många halvfärdiga funktioner. Bortprioriterat:
 
 - Genomarbetad design
 - Laddindikatorer vid sökning, paginering och bildhämtning
 - Responsivitet på mindre skärmar
-- Stjärnbetyg som inmatning (betyg visas, men kan inte sättas)
-- Språkstöd: gränssnittet är på svenska medan boktitlarna är på engelska
+- Betyg visas men kan inte sättas, och egna recensioner kan inte skrivas
+- Svenskt gränssnitt med engelska boktitlar
 - Utförlig endpoint-dokumentation i Scalar
-- Profilvy får användaren
-- Möjlighet att skriva egen recension
+- Profilvy
 
-Lästidsuppskattningen visas bara i detaljvyn. I listvyn hade den krävt antingen en fönsterfunktion i samma fråga eller en query per rad, och beslutsstödet behövs där man faktiskt fattar beslutet.
+Två saker jag vet är ofullständiga:
+
+Det unika indexet skyddar exemplaret. Lånetaket och regeln om samma bok kontrolleras i kod utan transaktion, så två samtidiga anrop från samma låntagare kan passera båda. Den regel som kan ge trasig data i databasen är den jag lade i databasen, resten hade jag tagit med en transaktion om det gått till drift.
+
+Lästiden visas bara i detaljvyn. I listan hade den krävt en fönsterfunktion i samma fråga eller en query per rad, och siffran behövs där beslutet fattas.
 
 ## Med mer tid
 
 - TypeScript-typer genererade från OpenAPI-schemat i stället för handskrivna
-- Uppslagningen av bokdata efter rå SQL finns på två ställen och borde brytas ut
+- Uppslagningen av bokdata efter SQL ligger på två ställen och borde brytas ut
 - Testcontainers i stället för en delad testdatabas
 - Paginerade recensioner
-- Nyförvärv som egen lista, populära böcker dominerar oavsett tidsfönster, eftersom katalogen är statisk
-
-Bortprioriterade features:
-
-- Design för hur böcker listas i tabellen
-- Laddindikator vid sökning/paginering/bildhämtning
-- Responsivitet på mindre skärmar
-- Stjärnbetygssystem
-- Språkstöd (medveten om inkonsekvensen med svensk sida och engelska boktitlar)
-- Genomarbetad dokumentation över api-endpoints i Scalar
-- Smart lösning för API-hantering och caching i frontend
-- Profilvy för användare
+- Nyförvärv som egen lista. Populära böcker dominerar oavsett tidsfönster eftersom katalogen är statisk

@@ -59,13 +59,35 @@ fi
 
 pids=()
 
+kill_tree() {
+  local pid=$1
+  # Döda barnen först, annars blir de föräldralösa och behåller portarna.
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    kill_tree "$child"
+  done
+  kill "$pid" 2>/dev/null || true
+}
+
+free_port() {
+  local pid
+  pid=$(lsof -t -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true)
+  [ -n "$pid" ] && kill $pid 2>/dev/null || true
+}
+
 shutdown() {
   echo ""
   echo "==> Stänger ner"
+
   for pid in "${pids[@]}"; do
-    kill "$pid" 2>/dev/null || true
+    kill_tree "$pid"
   done
-  wait 2>/dev/null || true
+
+  sleep 0.5
+
+  # Skyddsnät om något ändå överlevde.
+  free_port 5092
+  free_port 3000
+
   exit 0
 }
 
@@ -91,5 +113,5 @@ echo ""
 echo "  Ctrl+C avslutar båda."
 echo ""
 
-wait -n
+wait
 shutdown

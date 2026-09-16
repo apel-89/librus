@@ -18,7 +18,6 @@ public sealed class DomainExceptionHandler(ILogger<DomainExceptionHandler> logge
             NotFoundException => (StatusCodes.Status404NotFound, "Hittades inte"),
             ConflictException => (StatusCodes.Status409Conflict, "Åtgärden kunde inte utföras"),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Åtkomst nekad"),
-            ValidationException => (StatusCodes.Status400BadRequest, "Ogiltig begäran"),
             _ => (StatusCodes.Status400BadRequest, "Ogiltig begäran"),
         };
 

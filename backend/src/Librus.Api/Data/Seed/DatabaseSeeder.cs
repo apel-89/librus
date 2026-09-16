@@ -7,7 +7,7 @@ namespace Librus.Api.Data.Seed;
 /// <summary>
 /// Fyller databasen med utgångsdata. Böckerna kommer från Seed/books.json
 /// (hämtade från Open Library), medan användare, exemplar, lån och feedback
-/// genereras deterministiskt relativt aktuell tid — så att topplistans
+/// genereras relativt aktuell tid — så att topplistans
 /// tidsfönster och försenade lån alltid är aktuella när appen körs.
 /// </summary>
 public static class DatabaseSeeder
@@ -65,7 +65,7 @@ public static class DatabaseSeeder
         var path = Path.Combine(AppContext.BaseDirectory, "Seed", "books.json");
         if (!File.Exists(path))
             throw new FileNotFoundException(
-                $"Hittade inte {path}. Kör 'node scripts/fetch-books.mjs' först.", path);
+                $"Hittade inte {path}", path);
 
         await using var stream = File.OpenRead(path);
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -160,7 +160,6 @@ public static class DatabaseSeeder
     /// <summary>Zipf-liknande fördelning: några få böcker står för en stor del av lånen.</summary>
     private static double Popularity(Book book, List<Book> books)
     {
-        // Stabil pseudo-rank från titeln, så fördelningen inte beror på listordning.
         var hash = Math.Abs(book.Title.GetHashCode(StringComparison.Ordinal));
         var rank = hash % books.Count + 1;
         return 1.0 / Math.Pow(rank, 0.45);
@@ -170,14 +169,7 @@ public static class DatabaseSeeder
     [
         "Elsa", "Nils", "Maja", "Oskar", "Alva", "Hugo", "Vera", "Arvid", "Sigrid", "Melker",
         "Tuva", "Vidar", "Ingrid", "Folke", "Signe", "Ove", "Linnea", "Gustav", "Astrid",
-        "Emil", "Saga", "Rasmus", "Britt", "Åke", "Nora", "Lars", "Karin", "Per", "Eva", "Jan", 
-        "Inga", "Björn", "Helena", "Magnus", "Ulla", "Stefan", "Birgitta", "Anders", "Gunilla", 
-        "Mats", "Annika", "Peter", "Malin", "Johan", "Camilla", "Fredrik", "Maria", "Henrik", 
-        "Susanne", "Kjell", "Monica", "Leif", "Carina", "Tommy", "Anneli", "Bo", "Yvonne", 
-        "Christer", "Gun", "Lennart", "Barbro", "Roland", "Inger", "Bengt", "Marianne", "Hans", 
-        "Kristina", "Ulf", "Eva-Lena", "Stefan", "Helene", "Mikael", "Birgitta", "Andreas", 
-        "Susanna", "Patrik", "Malin", "Fredrik", "Camilla", "Johan", "Maria", "Henrik", "Susanne",
-        "Olof", "Katarina", "Erik", "Johanna", "Mattias", "Sofia", "Daniel", "Emma", "Niklas", 
+        "Emil", "Saga", "Rasmus", "Britt", "Åke", "Nora", "Lars", "Karin", "Per", "Eva", "Jan",
     ];
 
     private static readonly string[] LastNames =
@@ -259,8 +251,6 @@ public static class DatabaseSeeder
 
                 var borrowedAt = cursor;
                 var loan = Loan.Start(copy.Id, reader.User.Id, borrowedAt);
-                loan.Copy = copy;
-                loan.User = reader.User;
 
                 var returnedAt = borrowedAt.AddDays(readingDays);
                 if (returnedAt >= now)
@@ -302,8 +292,8 @@ public static class DatabaseSeeder
     }
 
     /// <summary>
-    /// Den inloggade låntagaren ska ha något att titta på direkt: pågående lån,
-    /// ett försenat, och historik. Lånen finns redan — här flyttas bara ägarskapet.
+    /// Den inloggade låntagaren ska ha något att titta på direkt: pågående lån
+    /// och historik. Lånen finns redan — här flyttas bara ägarskapet.
     /// </summary>
     private static void EnsureCurrentUserHasInterestingState(
         List<Loan> loans, Random rng, DateTime now)
@@ -317,12 +307,6 @@ public static class DatabaseSeeder
         foreach (var loan in active.OrderBy(_ => rng.Next()).Take(2))
             loan.UserId = CurrentUserId;
 
-        var mine = loans.Where(l => l.IsActive && l.UserId == CurrentUserId).Take(2);
-        foreach (var loan in mine)
-        {
-            loan.BorrowedAt = now.AddDays(-LoanPolicy.LoanPeriodDays - rng.Next(3, 21));
-            loan.DueAt = loan.BorrowedAt.AddDays(LoanPolicy.LoanPeriodDays);
-        }
 
         foreach (var loan in loans.Where(l => l.IsActive && l.UserId != CurrentUserId))
         {
